@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+.DS_Store
+.venv/
+venv/
+env/
+.env
+.agents/
+.gemini/
+*.parquet
+*.db
+*.jsonl
