@@ -2,9 +2,9 @@
 
 Báo cáo này được tự động tạo lập từ kết quả chạy đánh giá mô hình `vllm/Qwen3.6-35B-A3B-GGUF` kết hợp với API embedding `mirai-embedding` trên tập dữ liệu FloodSQL-Bench.
 
-## 1. Bảng So sánh Hiệu năng Theo Cấp độ (L0 - L6)
+## 1. Bảng So sánh Hiệu năng Theo Cấp độ (L0 - L5)
 
-Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L6 (Khó nhất):
+Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L5 (Khó nhất):
 
 | Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng Tree Edit Distance (TED Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
 | :--- | :---: | :---: | :---: | :---: |
