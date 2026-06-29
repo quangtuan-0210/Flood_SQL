@@ -176,8 +176,8 @@ def generate_report():
             metric_col_header = "Điểm tương đồng Tree Edit Distance (TED Similarity)"
             print("Đang xử lý báo cáo cho phương pháp Tree Edit Distance (TED)...")
 
-        # 1. Tính toán điểm số theo từng mức L0-L6
-        levels = ["L0", "L1", "L2", "L3", "L4", "L5", "L6"]
+        # 1. Tính toán điểm số theo từng mức L0-L5
+        levels = ["L0", "L1", "L2", "L3", "L4", "L5"]
         level_stats = {l: {"exec": [], "metric": [], "text": []} for l in levels}
         
         evaluated_records = []
@@ -224,7 +224,7 @@ def generate_report():
                 "details": res_details
             })
             
-        # Lập bảng so sánh cấp độ L0-L6
+        # Lập bảng so sánh cấp độ L0-L5
         comparison_table_lines = [
             f"| Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | {metric_col_header} | Điểm tương đồng văn bản SQL (Text Similarity) |",
             "| :--- | :---: | :---: | :---: | :---: |"
@@ -412,9 +412,9 @@ CÂY AST PREDICTED:
 
 Báo cáo này được tự động tạo lập từ kết quả chạy đánh giá mô hình `vllm/Qwen3.6-35B-A3B-GGUF` kết hợp với API embedding `mirai-embedding` trên tập dữ liệu FloodSQL-Bench.
 
-## 1. Bảng So sánh Hiệu năng Theo Cấp độ (L0 - L6)
+## 1. Bảng So sánh Hiệu năng Theo Cấp độ (L0 - L5)
 
-Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L6 (Khó nhất):
+Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L5 (Khó nhất):
 
 {comparison_table_md}
 
