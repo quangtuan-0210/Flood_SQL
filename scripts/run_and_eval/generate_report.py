@@ -390,9 +390,23 @@ CÂY AST PREDICTED:
         pair_details_md = "\n".join(pair_details_sections)
         
         if mode == "weighted_ast":
-            desc_text = """- **Điểm tương đồng Weighted AST (Weighted AST Similarity)** đo lường độ chính xác cấu trúc ngữ nghĩa (phân tích sâu các thành phần SELECT, WHERE, JOIN, FROM, Predicate phi không gian, GROUP BY, ORDER BY theo hệ số trọng số), phản ánh sát tư duy viết code của AI."""
+            desc_text = r"""- **Điểm tương đồng Weighted AST (Weighted AST Similarity)** đo lường độ chính xác cấu trúc ngữ nghĩa (phân tích sâu các thành phần SELECT, WHERE, JOIN, FROM, Predicate phi không gian, GROUP BY, ORDER BY theo hệ số trọng số), phản ánh sát tư duy viết code của AI."""
         else:
-            desc_text = """- **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu (thêm, xóa, thay thế nút) trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth, cho điểm số phản ánh độ chính xác phân cấp cấu trúc."""
+            desc_text = r"""- **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth.
+  
+  **Thuật toán Tree Edit Distance (TED):**
+  Phương pháp sử dụng thuật toán Zhang-Shasha (1989) để so sánh hai cây cú pháp có thứ tự. Khoảng cách hiệu chỉnh $d(T_1, T_2)$ là số thao tác tối thiểu gồm:
+  1. *Delete (Xóa nút)*: Loại bỏ một nút khỏi cây và chuyển các con của nó lên làm con trực tiếp của cha nó.
+  2. *Insert (Thêm nút)*: Chèn thêm một nút vào một vị trí và chuyển một nhóm con của cha nó làm con của nút mới.
+  3. *Rename (Thay đổi nhãn)*: Đổi nhãn của một nút (ví dụ: đổi tên hàm hoặc cột).
+  
+  **Công thức chuẩn hóa điểm tương đồng:**
+  Điểm tương đồng chuẩn hóa $S \in [0, 1]$ được tính theo công thức:
+  $$S = 1.0 - \frac{d(T_1, T_2)}{|T_1| + |T_2|}$$
+  *Trong đó:*
+  - $d(T_1, T_2)$ là khoảng cách hiệu chỉnh cây thực tế giữa Ground Truth AST ($T_1$) và Predicted AST ($T_2$).
+  - $|T_1| + |T_2|$ là khoảng cách hiệu chỉnh tối đa có thể (trường hợp xóa sạch cây $T_1$ và dựng mới toàn bộ cây $T_2$).
+  - Nếu cả hai cây đều rỗng ($|T_1| + |T_2| = 0$), $S = 1.0$."""
 
         report_content = f"""# {report_title}
 

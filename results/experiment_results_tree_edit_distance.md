@@ -9,16 +9,30 @@ Dưới đây là bảng thống kê điểm số trung bình của mô hình th
 | Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng Tree Edit Distance (TED Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
 | :--- | :---: | :---: | :---: | :---: |
 | L0 | 50 | 78.00% | 80.65% | 53.68% |
-| L1 | 100 | 60.00% | 70.79% | 39.69% |
-| L2 | 150 | 40.67% | 82.28% | 32.63% |
+| L1 | 100 | 59.00% | 70.79% | 39.69% |
+| L2 | 150 | 39.33% | 82.28% | 32.63% |
 | L3 | 50 | 14.00% | 55.84% | 27.68% |
 | L4 | 43 | 4.65% | 44.32% | 19.01% |
 | L5 | 50 | 0.00% | 22.29% | 8.72% |
-| **Trung bình cộng** | **443** | **38.15%** | **66.06%** | **32.02%** |
+| **Trung bình cộng** | **443** | **37.47%** | **66.06%** | **32.02%** |
 
 * **Nhận xét chung**:
   - **Độ chính xác thực thi (Execution Accuracy)** phản ánh tỷ lệ câu chạy ra kết quả khớp 100% trên DuckDB.
-  - **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu (thêm, xóa, thay thế nút) trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth, cho điểm số phản ánh độ chính xác phân cấp cấu trúc.
+  - **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth.
+  
+  **Thuật toán Tree Edit Distance (TED):**
+  Phương pháp sử dụng thuật toán Zhang-Shasha (1989) để so sánh hai cây cú pháp có thứ tự. Khoảng cách hiệu chỉnh $d(T_1, T_2)$ là số thao tác tối thiểu gồm:
+  1. *Delete (Xóa nút)*: Loại bỏ một nút khỏi cây và chuyển các con của nó lên làm con trực tiếp của cha nó.
+  2. *Insert (Thêm nút)*: Chèn thêm một nút vào một vị trí và chuyển một nhóm con của cha nó làm con của nút mới.
+  3. *Rename (Thay đổi nhãn)*: Đổi nhãn của một nút (ví dụ: đổi tên hàm hoặc cột).
+  
+  **Công thức chuẩn hóa điểm tương đồng:**
+  Điểm tương đồng chuẩn hóa $S \in [0, 1]$ được tính theo công thức:
+  $$S = 1.0 - \frac{d(T_1, T_2)}{|T_1| + |T_2|}$$
+  *Trong đó:*
+  - $d(T_1, T_2)$ là khoảng cách hiệu chỉnh cây thực tế giữa Ground Truth AST ($T_1$) và Predicted AST ($T_2$).
+  - $|T_1| + |T_2|$ là khoảng cách hiệu chỉnh tối đa có thể (trường hợp xóa sạch cây $T_1$ và dựng mới toàn bộ cây $T_2$).
+  - Nếu cả hai cây đều rỗng ($|T_1| + |T_2| = 0$), $S = 1.0$.
   - **Điểm tương đồng văn bản (Text Similarity)** dựa trên từ vựng thuần túy, thường có xu hướng thấp hơn điểm AST do sự khác biệt nhỏ về cách viết thường/hoa, khoảng trắng hoặc alias không làm ảnh hưởng ngữ nghĩa nhưng làm lệch chữ.
 
 ## 2. Bảng So sánh 12 Cặp Spatial SQL Tiêu Biểu (L0 - L5)
