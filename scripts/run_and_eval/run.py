@@ -3,6 +3,8 @@ import json
 import numpy as np
 import time 
 import argparse
+import glob
+import duckdb
 from openai import OpenAI
 
 INPUT_JSON = "benchmark/bechmark_updated.jsonl" 
@@ -175,12 +177,29 @@ SYSTEM_PROMPT = """You are an expert DuckDB SQL generator for the FloodSQL_Bench
 Use only the tables and columns given in the metadata context.
 Do NOT output any reasoning, explanation, or analysis.
 Output only the final SQL query, with no comments and no semicolon.
-Your output must contain SQL code only."""
+Your output must contain SQL code only.
+
+CRITICAL RULES FOR PERFORMANCE & SPATIAL JOINS:
+1. When performing a spatial join/filter (like ST_Intersects, ST_Contains, or ST_Within) between another table and the 'floodplain' table, if the query filters by state (e.g., STATEFP = '12' or GEOID starting with a state prefix), you MUST explicitly apply the same state filter to the 'floodplain' table as well (e.g., floodplain.STATEFP = '12' or floodplain.GEOID LIKE '12%'). Failing to do so causes a massive cross-join on the entire 2.5 GB floodplain dataset, leading to a query timeout!
+2. Apply state/county filters on all joined tables as early as possible to minimize geometric calculation overhead."""
 
 def generate_sql_rag_embed():
     meta = load_metadata(METADATA_PATH)
     table_index = build_table_index(meta)
     col_index = build_column_index(meta)
+
+    # Khởi tạo kết quả DuckDB để kiểm tra lỗi cú pháp và đặt tên cột trước khi lưu
+    print("Đang khởi động DuckDB cục bộ phục vụ bước Self-Correction...")
+    con = duckdb.connect(database=':memory:')
+    con.execute("INSTALL spatial;")
+    con.execute("LOAD spatial;")
+    for filepath in glob.glob(os.path.join(DATA_DIR, "*.parquet")):
+        filename = os.path.basename(filepath)
+        table_name = filename.replace('.parquet', '').replace('_tx_fl_la', '')
+        try:
+            con.execute(f"CREATE OR REPLACE VIEW {table_name} AS SELECT * FROM '{filepath}'")
+        except Exception:
+            pass
 
     # Đảm bảo thư mục results tồn tại
     os.makedirs(os.path.dirname(OUTPUT_JSONL), exist_ok=True)
@@ -226,29 +245,57 @@ def generate_sql_rag_embed():
         user_prompt = f"Question:\n{question}\n\nReturn only a single valid DuckDB SQL query."
 
         sql = None
-        max_retries = 5
-        for attempt in range(max_retries):
-            try:
-                resp = client_llm.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "system", "content": metadata_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=0,
-                    timeout=60
-                )
-                sql = clean_sql(resp.choices[0].message.content)
-                sql = flatten_sql(sql)
+        max_attempts = 3
+        
+        # Danh sách hội thoại gửi LLM (sẽ append thêm nếu có lỗi cú pháp để tự sửa)
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": metadata_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        
+        for attempt in range(max_attempts):
+            raw_sql = None
+            api_success = False
+            # Lần thử gọi API (có retry 5 lần đối với lỗi kết nối)
+            for api_retry in range(5):
+                try:
+                    resp = client_llm.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=messages,
+                        temperature=0,
+                        timeout=120
+                    )
+                    raw_sql = clean_sql(resp.choices[0].message.content)
+                    raw_sql = flatten_sql(raw_sql)
+                    api_success = True
+                    break
+                except Exception as e:
+                    print(f"[CẢNH BÁO] API call thất bại lần {api_retry + 1} tại {qid}: {e}")
+                    time.sleep(2 ** api_retry)
+            
+            if not api_success or not raw_sql:
+                print(f"[ERROR] API thất bại hoàn toàn tại {qid}")
                 break
-            except Exception as e:
-                print(f"[CẢNH BÁO] Lần thử {attempt + 1} thất bại tại {qid}: {e}")
-                if attempt == max_retries - 1:
-                    print(f"[ERROR] Quá số lần thử lại. API sập hoàn toàn hoặc lỗi nặng tại {qid}: {e}")
-                    sql = None
-                else:
-                    time.sleep(2 ** attempt)
+                
+            # Kiểm tra cú pháp bằng EXPLAIN
+            try:
+                con.execute(f"EXPLAIN {raw_sql}")
+                sql = raw_sql
+                if attempt > 0:
+                    print(f"  -> [SỬA LỖI THÀNH CÔNG] Đã tự sửa lỗi thành công ở lần thử {attempt + 1}")
+                break
+            except Exception as duckdb_err:
+                err_msg = str(duckdb_err).strip()
+                print(f"  -> [LỖI CÚ PHÁP/CỘT] Lần thử {attempt + 1} tại {qid} lỗi: {err_msg}")
+                # Đưa câu sai và lỗi của DuckDB vào lịch sử để LLM sửa
+                messages.append({"role": "assistant", "content": raw_sql})
+                correction_prompt = (
+                    f"The SQL query you generated failed execution in DuckDB with the following error:\n"
+                    f"{err_msg}\n\n"
+                    f"Please correct the error, ensure all column names and table names match the schema metadata, and return only the corrected SQL query with no explanation."
+                )
+                messages.append({"role": "user", "content": correction_prompt})
 
         record = {
             "id": qid,

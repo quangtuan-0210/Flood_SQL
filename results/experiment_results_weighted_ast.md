@@ -1,4 +1,4 @@
-# BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL
+# BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (WEIGHTED AST)
 
 Báo cáo này được tự động tạo lập từ kết quả chạy đánh giá mô hình `vllm/Qwen3.6-35B-A3B-GGUF` kết hợp với API embedding `mirai-embedding` trên tập dữ liệu FloodSQL-Bench.
 
@@ -6,26 +6,26 @@ Báo cáo này được tự động tạo lập từ kết quả chạy đánh 
 
 Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L6 (Khó nhất):
 
-| Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng AST (AST Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
+| Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng Weighted AST (Weighted AST Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
 | :--- | :---: | :---: | :---: | :---: |
-| L0 | 50 | 78.00% | 79.32% | 52.85% |
-| L1 | 100 | 58.00% | 64.92% | 41.07% |
-| L2 | 150 | 42.67% | 57.28% | 32.58% |
-| L3 | 50 | 14.00% | 42.99% | 24.87% |
-| L4 | 43 | 4.65% | 32.34% | 19.70% |
-| L5 | 50 | 0.00% | 47.77% | 30.41% |
-| **Trung bình cộng** | **443** | **38.37%** | **56.39%** | **34.42%** |
+| L0 | 50 | 80.00% | 80.77% | 53.68% |
+| L1 | 100 | 60.00% | 63.25% | 39.69% |
+| L2 | 150 | 42.00% | 56.22% | 32.63% |
+| L3 | 50 | 14.00% | 48.45% | 27.68% |
+| L4 | 43 | 4.65% | 30.40% | 19.01% |
+| L5 | 50 | 0.00% | 13.69% | 8.72% |
+| **Trung bình cộng** | **443** | **38.83%** | **52.39%** | **32.02%** |
 
 * **Nhận xét chung**:
   - **Độ chính xác thực thi (Execution Accuracy)** phản ánh tỷ lệ câu chạy ra kết quả khớp 100% trên DuckDB.
-  - **Điểm tương đồng AST (AST Similarity)** đo lường độ chính xác cấu trúc ngữ nghĩa (bỏ qua alias và thứ tự điều kiện), phản ánh sát nhất tư duy viết code của AI.
+  - **Điểm tương đồng Weighted AST (Weighted AST Similarity)** đo lường độ chính xác cấu trúc ngữ nghĩa (phân tích sâu các thành phần SELECT, WHERE, JOIN, FROM, Predicate phi không gian, GROUP BY, ORDER BY theo hệ số trọng số), phản ánh sát tư duy viết code của AI.
   - **Điểm tương đồng văn bản (Text Similarity)** dựa trên từ vựng thuần túy, thường có xu hướng thấp hơn điểm AST do sự khác biệt nhỏ về cách viết thường/hoa, khoảng trắng hoặc alias không làm ảnh hưởng ngữ nghĩa nhưng làm lệch chữ.
 
 ## 2. Bảng So sánh 12 Cặp Spatial SQL Tiêu Biểu (L0 - L5)
 
 Dưới đây là bảng thống kê 12 cặp truy vấn đại diện được trích xuất từ thực nghiệm để đánh giá chi tiết:
 
-| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng AST | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |
+| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng Weighted AST | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | 1 | L0_0001 | L0 | 0.45 | Đúng | Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa. |
 | 2 | L0_0002 | L0 | 0.80 | Sai | Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết. |
@@ -36,16 +36,16 @@ Dưới đây là bảng thống kê 12 cặp truy vấn đại diện được 
 | 7 | L3_0013 | L3 | 0.63 | Đúng | Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa. |
 | 8 | L3_0002 | L3 | 0.38 | Sai | Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại. |
 | 9 | L4_0015 | L4 | 0.17 | Đúng | Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa. |
-| 10 | L4_0001 | L4 | 0.63 | Sai | Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết. |
+| 10 | L4_0005 | L4 | 0.30 | Sai | Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại. |
 | 11 | L5_0001 | L5 | 0.60 | Sai | Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết. |
-| 12 | L4_0002 | L4 | 0.38 | Sai | Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại. |
+| 12 | L4_0007 | L4 | 0.47 | Sai | Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết. |
 
 ## 3. Phân tích Chi tiết 12 Cặp Truy vấn (AST & Trực quan hóa)
 
 
 ### Cặp 1: L0_0001 (Mức L0)
 * **Câu hỏi**: In Harris County, Texas (identified by GEOID starting with 48201), how many NFIP claims have a dateOfLoss on or after 2010-01-01?
-* **Điểm tương đồng AST**: 0.45
+* **Điểm tương đồng Weighted AST**: 0.45
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -128,7 +128,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 2: L0_0002 (Mức L0)
 * **Câu hỏi**: What is the total area of valid FEMA Flood Hazard Zone polygons in Florida (STATEFP = '12') labeled as AE?
-* **Điểm tương đồng AST**: 0.80
+* **Điểm tương đồng Weighted AST**: 0.80
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -201,7 +201,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 3: L1_0001 (Mức L1)
 * **Câu hỏi**: Which non-null year had the highest total number of NFIP flood claims in Louisiana (STATEFP 22), based on a key-based join between claims and county tables? Return the year.
-* **Điểm tương đồng AST**: 0.60
+* **Điểm tương đồng Weighted AST**: 0.60
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -316,7 +316,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
-- **Thành phần khớp**: ["claims", "county"]
+- **Thành phần khớp**: ["county", "claims"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["'22' = COUNTY.STATEFP"]
 - **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP"]
 
@@ -325,7 +325,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 4: L1_0004 (Mức L1)
 * **Câu hỏi**: Which 3 Texas counties (STATEFP 48) have the highest non-null percentage of individuals with zero vulnerability components?
-* **Điểm tương đồng AST**: 0.90
+* **Điểm tương đồng Weighted AST**: 0.90
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -444,7 +444,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Sai logic: Khác biệt ở cấu trúc SELECT hoặc cách lập điều kiện.
-- **Thành phần khớp**: ["cre", "county"]
+- **Thành phần khớp**: ["county", "cre"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: []
 - **Thành phần thừa (Predicted tự viết thêm)**: []
 
@@ -453,7 +453,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 5: L2_0003 (Mức L2)
 * **Câu hỏi**: Which census_tract in Hillsborough County, FL (identified by STATEFP = '12' and COUNTYFP = '057') has the largest total overlap area with all zcta polygons? Return its 11-digit GEOID.
-* **Điểm tương đồng AST**: 0.62
+* **Điểm tương đồng Weighted AST**: 0.62
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -579,8 +579,8 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
-- **Thành phần khớp**: ["zcta", "census_tracts"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(ZCTA.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "ST_OVERLAPS(CENSUS_TRACTS.GEOMETRY, ZCTA.GEOMETRY)"]
+- **Thành phần khớp**: ["census_tracts", "zcta"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "ST_ISVALID(ZCTA.GEOMETRY)", "ST_OVERLAPS(CENSUS_TRACTS.GEOMETRY, ZCTA.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: ["ST_INTERSECTS(CENSUS_TRACTS.GEOMETRY, ZCTA.GEOMETRY)"]
 
 ---
@@ -588,7 +588,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 6: L2_0001 (Mức L2)
 * **Câu hỏi**: How many census_tracts in Duval County, FL (identified by GEOID starting with 12031) intersect floodplain polygons?
-* **Điểm tương đồng AST**: 0.70
+* **Điểm tương đồng Weighted AST**: 0.70
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -672,7 +672,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["floodplain", "census_tracts"]
+- **Thành phần khớp**: ["census_tracts", "floodplain"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: []
 
@@ -681,7 +681,7 @@ CÂY AST PREDICTED:
 
 ### Cặp 7: L3_0013 (Mức L3)
 * **Câu hỏi**: How many Louisiana (STATEFP 22) census tracts with NFIP claims have both overall SVI relative vulnerability percentile across all themes above 0.8 and CRE population exceeding 10,000?
-* **Điểm tương đồng AST**: 0.63
+* **Điểm tương đồng Weighted AST**: 0.63
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -808,16 +808,16 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
-- **Thành phần khớp**: ["cre", "claims", "svi"]
+- **Thành phần khớp**: ["claims", "svi", "cre"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["CL.GEOID = SVI.GEOID", "CL.GEOID = CRE.GEOID"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.GEOID = CRE.GEOID", "CLAIMS.GEOID = SVI.GEOID"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.GEOID = SVI.GEOID", "CLAIMS.GEOID = CRE.GEOID"]
 
 ---
 
 
 ### Cặp 8: L3_0002 (Mức L3)
 * **Câu hỏi**: In Florida (STATEFP 12), list the 5 census tracts with the highest population-weighted combined score of NRI total expected annual loss for riverine flooding and its average annual flood event frequency among tracts with NFIP claims.
-* **Điểm tương đồng AST**: 0.38
+* **Điểm tương đồng Weighted AST**: 0.38
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -992,16 +992,16 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại.
-- **Thành phần khớp**: ["nri", "claims", "cre"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["NOT NRI.RFLD_EALT IS NULL", "NOT NRI.RFLD_AFREQ IS NULL", "CRE.POPUNI > 0", "CL.GEOID = NRI.GEOID", "CL.GEOID = CRE.GEOID"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'12' = CENSUS_TRACTS.STATEFP", "NRI.GEOID IN (SELECT GEOID FROM CLAIMS)", "CENSUS_TRACTS.GEOID = NRI.GEOID", "CRE.GEOID = NRI.GEOID"]
+- **Thành phần khớp**: ["cre", "nri", "claims"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["CRE.POPUNI > 0", "NOT NRI.RFLD_AFREQ IS NULL", "NOT NRI.RFLD_EALT IS NULL", "CL.GEOID = NRI.GEOID", "CL.GEOID = CRE.GEOID"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'12' = CENSUS_TRACTS.STATEFP", "NRI.GEOID IN (SELECT GEOID FROM CLAIMS)", "CRE.GEOID = NRI.GEOID", "CENSUS_TRACTS.GEOID = NRI.GEOID"]
 
 ---
 
 
 ### Cặp 9: L4_0015 (Mức L4)
 * **Câu hỏi**: In Louisiana (STATEFP 22), what is the maximum Insurance payout amount (in USD) for structural building damage (amountPaidOnContentsClaim) across all census tracts that contain at least one hospital?
-* **Điểm tương đồng AST**: 0.17
+* **Điểm tương đồng Weighted AST**: 0.17
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -1111,26 +1111,26 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
-- **Thành phần khớp**: ["claims", "hospitals"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["NOT CLAIMS.AMOUNTPAIDONCONTENTSCLAIM IS NULL", "'22' = HOSPITALS.STATEFP", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "CENSUS_TRACTS.GEOID = CLAIMS.GEOID", "ST_CONTAINS(CENSUS_TRACTS.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
+- **Thành phần khớp**: ["hospitals", "claims"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "'22' = HOSPITALS.STATEFP", "NOT CLAIMS.AMOUNTPAIDONCONTENTSCLAIM IS NULL", "ST_CONTAINS(CENSUS_TRACTS.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))", "CENSUS_TRACTS.GEOID = CLAIMS.GEOID"]
 - **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.STATEFP = HOSPITALS.STATEFP", "HOSPITALS.COUNTYFIPS = LEFT(CLAIMS.GEOID, 5)"]
 
 ---
 
 
-### Cặp 10: L4_0001 (Mức L4)
-* **Câu hỏi**: What is the average Relative percentile for Theme 1 (Socioeconomic) for census tracts in Texas (STATEFP 48) that intersect a FEMA floodplain polygon?
-* **Điểm tương đồng AST**: 0.63
+### Cặp 10: L4_0005 (Mức L4)
+* **Câu hỏi**: Which 5 Texas (STATEFP 12) counties have the highest number of hospitals located inside floodplain zones? Return their names.
+* **Điểm tương đồng Weighted AST**: 0.30
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
 * **Ground Truth SQL**:
   ```sql
-  SELECT AVG(v.RPL_THEME1) AS avg_theme1_rank FROM svi v JOIN census_tracts t ON v.GEOID = t.GEOID JOIN floodplain f ON ST_Intersects(t.geometry, f.geometry) WHERE t.STATEFP='48' AND ST_IsValid(t.geometry) AND ST_IsValid(f.geometry) AND v.RPL_THEME1 IS NOT NULL AND v.RPL_THEME1 BETWEEN 0 AND 100;
+  SELECT c.NAME AS county_name FROM hospitals h JOIN county c ON LEFT(h.COUNTYFIPS,5)=c.GEOID JOIN floodplain f ON ST_Contains(f.geometry, ST_Point(h.LON, h.LAT)) WHERE c.STATEFP='12' AND ST_IsValid(f.geometry) AND ST_IsValid(c.geometry) GROUP BY c.NAME ORDER BY COUNT(*) DESC LIMIT 5;
   ```
 * **Predicted SQL**:
   ```sql
-  SELECT AVG(svi.RPL_THEME1) FROM svi JOIN census_tracts ON svi.GEOID = census_tracts.GEOID JOIN floodplain ON ST_Intersects(census_tracts.geometry, floodplain.geometry) WHERE census_tracts.STATEFP = '48'
+  SELECT c.NAME FROM hospitals h JOIN county c ON h.COUNTYFIPS = c.GEOID JOIN floodplain f ON ST_Intersects(f.geometry, ST_Point(h.LON, h.LAT)) WHERE c.STATEFP = '48' GROUP BY c.NAME ORDER BY count(h.HOSPITAL_ID) DESC LIMIT 5
   ```
 
 #### Trực quan hóa Cây AST chuẩn hóa:
@@ -1138,11 +1138,12 @@ CÂY AST PREDICTED:
 CÂY AST GROUND TRUTH:
 └─ Select
   └─ Alias
-    └─ Avg
-      └─ Column
-        └─ Identifier
-        └─ Identifier
+    └─ Column
+      └─ Identifier
+      └─ Identifier
     └─ Identifier
+  └─ Limit
+    └─ Literal
   └─ From
     └─ Table
       └─ Identifier
@@ -1153,56 +1154,57 @@ CÂY AST GROUND TRUTH:
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ Column
-        └─ Identifier
-        └─ Identifier
-  └─ Join
-    └─ Table
-      └─ Identifier
-    └─ Anonymous
-      └─ Column
-        └─ Identifier
-        └─ Identifier
-      └─ Column
-        └─ Identifier
-        └─ Identifier
-  └─ Where
-    └─ And
-      └─ And
-        └─ And
-          └─ And
-            └─ EQ
-              └─ Literal
-              └─ Column
-                └─ Identifier
-                └─ Identifier
-            └─ Anonymous
-              └─ Column
-                └─ Identifier
-                └─ Identifier
-          └─ Anonymous
-            └─ Column
-              └─ Identifier
-              └─ Identifier
-        └─ Not
-          └─ Is
-            └─ Column
-              └─ Identifier
-              └─ Identifier
-            └─ Null
-      └─ Between
+      └─ Left
         └─ Column
           └─ Identifier
           └─ Identifier
         └─ Literal
-        └─ Literal
-
-CÂY AST PREDICTED:
-└─ Select
-  └─ Avg
+  └─ Join
+    └─ Table
+      └─ Identifier
+    └─ Anonymous
+      └─ Column
+        └─ Identifier
+        └─ Identifier
+      └─ StPoint
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+  └─ Where
+    └─ And
+      └─ And
+        └─ EQ
+          └─ Literal
+          └─ Column
+            └─ Identifier
+            └─ Identifier
+        └─ Anonymous
+          └─ Column
+            └─ Identifier
+            └─ Identifier
+      └─ Anonymous
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+  └─ Group
     └─ Column
       └─ Identifier
       └─ Identifier
+  └─ Order
+    └─ Ordered
+      └─ Count
+        └─ Star
+
+CÂY AST PREDICTED:
+└─ Select
+  └─ Column
+    └─ Identifier
+    └─ Identifier
+  └─ Limit
+    └─ Literal
   └─ From
     └─ Table
       └─ Identifier
@@ -1223,29 +1225,43 @@ CÂY AST PREDICTED:
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ Column
-        └─ Identifier
-        └─ Identifier
+      └─ StPoint
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+        └─ Column
+          └─ Identifier
+          └─ Identifier
   └─ Where
     └─ EQ
       └─ Literal
       └─ Column
         └─ Identifier
         └─ Identifier
+  └─ Group
+    └─ Column
+      └─ Identifier
+      └─ Identifier
+  └─ Order
+    └─ Ordered
+      └─ Count
+        └─ Column
+          └─ Identifier
+          └─ Identifier
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["floodplain", "svi", "census_tracts"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["NOT SVI.RPL_THEME1 IS NULL", "ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "SVI.RPL_THEME1 BETWEEN 0 AND 100"]
-- **Thành phần thừa (Predicted tự viết thêm)**: []
+- **Nhận xét**: Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại.
+- **Thành phần khớp**: ["county", "hospitals", "floodplain"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["'12' = COUNTY.STATEFP", "ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(COUNTY.GEOMETRY)", "COUNTY.GEOID = LEFT(HOSPITALS.COUNTYFIPS, 5)", "ST_CONTAINS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'48' = COUNTY.STATEFP", "COUNTY.GEOID = HOSPITALS.COUNTYFIPS", "ST_INTERSECTS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
 
 ---
 
 
 ### Cặp 11: L5_0001 (Mức L5)
 * **Câu hỏi**: How many hospitals are located within both FEMA floodplain polygons and census tract boundaries in Harris County, Texas (identified by the leftmost 5 digits of GEOID 48201 in the census_tract table)?
-* **Điểm tương đồng AST**: 0.60
+* **Điểm tương đồng Weighted AST**: 0.60
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -1369,26 +1385,26 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["floodplain", "census_tracts", "hospitals"]
+- **Thành phần khớp**: ["hospitals", "census_tracts", "floodplain"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: []
 
 ---
 
 
-### Cặp 12: L4_0002 (Mức L4)
-* **Câu hỏi**: Which 5 Florida (STATEFP 12) counties have the highest number of hospitals located inside floodplain zones? Return their names.
-* **Điểm tương đồng AST**: 0.38
+### Cặp 12: L4_0007 (Mức L4)
+* **Câu hỏi**: In Texas (STATEFP 48), how many census tracts with Percentage of individuals with three plus components of social vulnerability higher than 40 intersect FEMA floodplain polygons?
+* **Điểm tương đồng Weighted AST**: 0.47
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
 * **Ground Truth SQL**:
   ```sql
-  SELECT c.NAME AS county_name FROM hospitals h JOIN county c ON LEFT(h.COUNTYFIPS,5)=c.GEOID JOIN floodplain f ON ST_Contains(f.geometry, ST_Point(h.LON, h.LAT)) WHERE c.STATEFP='12' AND ST_IsValid(f.geometry) AND ST_IsValid(c.geometry) GROUP BY c.NAME ORDER BY COUNT(*) DESC LIMIT 5;
+  SELECT COUNT(*) AS num_high_vuln_tracts FROM cre r JOIN census_tracts t ON r.GEOID=t.GEOID JOIN floodplain f ON ST_Intersects(f.geometry,t.geometry) WHERE LEFT(t.GEOID,2)='48' AND r.PRED3_PE>40 AND r.PRED3_PE BETWEEN 0 AND 100 AND ST_IsValid(f.geometry) AND ST_IsValid(t.geometry);
   ```
 * **Predicted SQL**:
   ```sql
-  SELECT county.NAME FROM hospitals JOIN county ON hospitals.COUNTYFIPS = county.GEOID JOIN floodplain ON ST_Intersects(floodplain.geometry, ST_Point(hospitals.LON, hospitals.LAT)) WHERE county.STATEFP = '12' GROUP BY county.NAME ORDER BY COUNT(DISTINCT hospitals.HOSPITAL_ID) DESC LIMIT 5
+  SELECT COUNT(DISTINCT ct.GEOID) FROM census_tracts ct JOIN cre c ON ct.GEOID = c.GEOID JOIN floodplain fp ON ST_Intersects(ct.geometry, fp.geometry) WHERE ct.STATEFP = '48' AND c.PRED3_PE > 40
   ```
 
 #### Trực quan hóa Cây AST chuẩn hóa:
@@ -1396,12 +1412,9 @@ CÂY AST PREDICTED:
 CÂY AST GROUND TRUTH:
 └─ Select
   └─ Alias
-    └─ Column
-      └─ Identifier
-      └─ Identifier
+    └─ Count
+      └─ Star
     └─ Identifier
-  └─ Limit
-    └─ Literal
   └─ From
     └─ Table
       └─ Identifier
@@ -1412,11 +1425,9 @@ CÂY AST GROUND TRUTH:
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ Left
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Literal
+      └─ Column
+        └─ Identifier
+        └─ Identifier
   └─ Join
     └─ Table
       └─ Identifier
@@ -1424,21 +1435,32 @@ CÂY AST GROUND TRUTH:
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ StPoint
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Column
-          └─ Identifier
-          └─ Identifier
+      └─ Column
+        └─ Identifier
+        └─ Identifier
   └─ Where
     └─ And
       └─ And
-        └─ EQ
-          └─ Literal
-          └─ Column
-            └─ Identifier
-            └─ Identifier
+        └─ And
+          └─ And
+            └─ EQ
+              └─ Literal
+              └─ Left
+                └─ Column
+                  └─ Identifier
+                  └─ Identifier
+                └─ Literal
+            └─ GT
+              └─ Column
+                └─ Identifier
+                └─ Identifier
+              └─ Literal
+          └─ Between
+            └─ Column
+              └─ Identifier
+              └─ Identifier
+            └─ Literal
+            └─ Literal
         └─ Anonymous
           └─ Column
             └─ Identifier
@@ -1447,22 +1469,14 @@ CÂY AST GROUND TRUTH:
         └─ Column
           └─ Identifier
           └─ Identifier
-  └─ Group
-    └─ Column
-      └─ Identifier
-      └─ Identifier
-  └─ Order
-    └─ Ordered
-      └─ Count
-        └─ Star
 
 CÂY AST PREDICTED:
 └─ Select
-  └─ Column
-    └─ Identifier
-    └─ Identifier
-  └─ Limit
-    └─ Literal
+  └─ Count
+    └─ Distinct
+      └─ Column
+        └─ Identifier
+        └─ Identifier
   └─ From
     └─ Table
       └─ Identifier
@@ -1483,37 +1497,28 @@ CÂY AST PREDICTED:
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ StPoint
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-  └─ Where
-    └─ EQ
-      └─ Literal
       └─ Column
         └─ Identifier
         └─ Identifier
-  └─ Group
-    └─ Column
-      └─ Identifier
-      └─ Identifier
-  └─ Order
-    └─ Ordered
-      └─ Count
-        └─ Distinct
-          └─ Column
-            └─ Identifier
-            └─ Identifier
+  └─ Where
+    └─ And
+      └─ EQ
+        └─ Literal
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+      └─ GT
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+        └─ Literal
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại.
-- **Thành phần khớp**: ["floodplain", "hospitals", "county"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(COUNTY.GEOMETRY)", "COUNTY.GEOID = LEFT(HOSPITALS.COUNTYFIPS, 5)", "ST_CONTAINS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["ST_INTERSECTS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))", "COUNTY.GEOID = HOSPITALS.COUNTYFIPS"]
+- **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
+- **Thành phần khớp**: ["census_tracts", "floodplain", "cre"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["CRE.PRED3_PE BETWEEN 0 AND 100", "'48' = LEFT(CENSUS_TRACTS.GEOID, 2)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "ST_ISVALID(FLOODPLAIN.GEOMETRY)"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'48' = CENSUS_TRACTS.STATEFP"]
 
 ---
 
