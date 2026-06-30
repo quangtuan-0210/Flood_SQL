@@ -11,6 +11,7 @@ import threading
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from weighted_ast_similarity import compare_queries
 from tree_edit_distance import calculate_tree_edit_distance_similarity
+from subtree_matching_similarity import calculate_subtree_matching_similarity
 
 warnings.filterwarnings('ignore')
 
@@ -109,6 +110,7 @@ def main():
     # Danh sách lưu điểm tương đồng
     ast_scores = []
     ted_scores = []
+    sub_scores = []
     
     # Thống kê loại lỗi AST
     missing_tables = 0
@@ -150,8 +152,13 @@ def main():
             ted_score = res_ted["score"]
             ted_scores.append(ted_score)
             
+            # Tính toán tương đồng Subtree Matching
+            res_sub = calculate_subtree_matching_similarity(gt_sql, gen_sql)
+            sub_score = res_sub["score"]
+            sub_scores.append(sub_score)
+            
             if not gen_sql:
-                print(f"[{qid}]: AI nộp giấy trắng (Trống) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%]")
+                print(f"[{qid}]: AI nộp giấy trắng (Trống) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%] [Subtree: {sub_score * 100:.1f}%]")
                 syntax_errors += 1
                 continue
                 
@@ -166,21 +173,21 @@ def main():
             try:
                 df_gen = db.execute(gen_sql, timeout_sec=3.0)
             except duckdb.InterruptException:
-                print(f"[{qid}]: TIMEOUT AI (Quá thời gian thực thi) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%]")
+                print(f"[{qid}]: TIMEOUT AI (Quá thời gian thực thi) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%] [Subtree: {sub_score * 100:.1f}%]")
                 syntax_errors += 1
                 continue
             except Exception as e:
-                print(f"[{qid}]: LỖI CÚ PHÁP AI [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%]")
+                print(f"[{qid}]: LỖI CÚ PHÁP AI [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%] [Subtree: {sub_score * 100:.1f}%]")
                 syntax_errors += 1
                 continue
                 
             # 3. So sánh
             if df_gt is not None and df_gen is not None:
                 if compare_results(df_gt, df_gen):
-                    print(f"[{qid}]: ĐÚNG (Kết quả khớp 100%) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%]")
+                    print(f"[{qid}]: ĐÚNG (Kết quả khớp 100%) [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%] [Subtree: {sub_score * 100:.1f}%]")
                     correct += 1
                 else:
-                    print(f"[{qid}]: SAI LOGIC [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%]")
+                    print(f"[{qid}]: SAI LOGIC [Weighted AST: {ast_score * 100:.1f}%] [TED: {ted_score * 100:.1f}%] [Subtree: {sub_score * 100:.1f}%]")
                     wrong_logic += 1
             else:
                 wrong_logic += 1
@@ -201,11 +208,13 @@ def main():
     # In kết quả AST Semantic Similarity
     avg_ast = sum(ast_scores) / len(ast_scores) if ast_scores else 0.0
     avg_ted = sum(ted_scores) / len(ted_scores) if ted_scores else 0.0
+    avg_sub = sum(sub_scores) / len(sub_scores) if sub_scores else 0.0
     print("\n" + "="*50)
     print("BẢNG ĐIỂM TƯƠNG ĐỒNG NGỮ NGHĨA (SEMANTIC SIMILARITY)")
     print("="*50)
     print(f"✔️ Điểm tương đồng Weighted AST trung bình: {avg_ast * 100:.2f}%")
     print(f"✔️ Điểm tương đồng Tree Edit Distance trung bình: {avg_ted * 100:.2f}%")
+    print(f"✔️ Điểm tương đồng Subtree Matching trung bình: {avg_sub * 100:.2f}%")
     print("-" * 50)
     print("Thống kê sự thiếu hụt logic của AI (Weighted AST Mismatches):")
     print(f"  + Số câu thiếu bảng cần dùng (Missing Tables)    : {missing_tables} câu")
@@ -235,6 +244,7 @@ Báo cáo thống kê kết quả thực thi và đánh giá tương đồng ng�
 
 * **Điểm tương đồng Weighted AST trung bình**: **{avg_ast * 100:.2f}%**
 * **Điểm tương đồng Tree Edit Distance (TED) trung bình**: **{avg_ted * 100:.2f}%**
+* **Điểm tương đồng Subtree Matching trung bình**: **{avg_sub * 100:.2f}%**
 
 ### Thống kê sự thiếu hụt logic của AI (Weighted AST Mismatches):
 

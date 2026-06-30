@@ -10,11 +10,11 @@ Dưới đây là bảng thống kê điểm số trung bình của mô hình th
 | :--- | :---: | :---: | :---: | :---: |
 | L0 | 50 | 78.00% | 80.77% | 53.68% |
 | L1 | 100 | 59.00% | 63.25% | 39.69% |
-| L2 | 150 | 42.00% | 56.22% | 32.63% |
+| L2 | 150 | 42.67% | 56.22% | 32.63% |
 | L3 | 50 | 14.00% | 48.45% | 27.68% |
 | L4 | 43 | 4.65% | 30.40% | 19.01% |
 | L5 | 50 | 0.00% | 13.69% | 8.72% |
-| **Trung bình cộng** | **443** | **38.37%** | **52.39%** | **32.02%** |
+| **Trung bình cộng** | **443** | **38.60%** | **52.39%** | **32.02%** |
 
 * **Nhận xét chung**:
   - **Độ chính xác thực thi (Execution Accuracy)** phản ánh tỷ lệ câu chạy ra kết quả khớp 100% trên DuckDB.
@@ -120,8 +120,8 @@ CÂY AST PREDICTED:
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
 - **Thành phần khớp**: ["claims"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["GEOID LIKE '48201%'", "DATEOFLOSS >= CAST('2010-01-01' AS DATE)"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'48201' = COUNTY.GEOID", "CLAIMS.DATEOFLOSS >= '2010-01-01'", "COUNTY.GEOID = LEFT(CLAIMS.GEOID, 5)"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["DATEOFLOSS >= CAST('2010-01-01' AS DATE)", "GEOID LIKE '48201%'"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["CLAIMS.DATEOFLOSS >= '2010-01-01'", "'48201' = COUNTY.GEOID", "COUNTY.GEOID = LEFT(CLAIMS.GEOID, 5)"]
 
 ---
 
@@ -316,7 +316,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
-- **Thành phần khớp**: ["claims", "county"]
+- **Thành phần khớp**: ["county", "claims"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["'22' = COUNTY.STATEFP"]
 - **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP"]
 
@@ -672,7 +672,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["census_tracts", "floodplain"]
+- **Thành phần khớp**: ["floodplain", "census_tracts"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: []
 
@@ -810,7 +810,7 @@ CÂY AST PREDICTED:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
 - **Thành phần khớp**: ["cre", "claims", "svi"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["CL.GEOID = CRE.GEOID", "CL.GEOID = SVI.GEOID"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.GEOID = CRE.GEOID", "CLAIMS.GEOID = SVI.GEOID"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.GEOID = SVI.GEOID", "CLAIMS.GEOID = CRE.GEOID"]
 
 ---
 
@@ -994,7 +994,7 @@ CÂY AST PREDICTED:
 - **Nhận xét**: Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại.
 - **Thành phần khớp**: ["cre", "claims", "nri"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["NOT NRI.RFLD_EALT IS NULL", "NOT NRI.RFLD_AFREQ IS NULL", "CRE.POPUNI > 0", "CL.GEOID = CRE.GEOID", "CL.GEOID = NRI.GEOID"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'12' = CENSUS_TRACTS.STATEFP", "NRI.GEOID IN (SELECT GEOID FROM CLAIMS)", "CRE.GEOID = NRI.GEOID", "CENSUS_TRACTS.GEOID = NRI.GEOID"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["NRI.GEOID IN (SELECT GEOID FROM CLAIMS)", "'12' = CENSUS_TRACTS.STATEFP", "CENSUS_TRACTS.GEOID = NRI.GEOID", "CRE.GEOID = NRI.GEOID"]
 
 ---
 
@@ -1112,8 +1112,8 @@ CÂY AST PREDICTED:
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Khác biệt cú pháp: Khác alias hoặc thứ tự bảng/mệnh đề điều kiện nhưng tương đương ngữ nghĩa.
 - **Thành phần khớp**: ["claims", "hospitals"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["'22' = HOSPITALS.STATEFP", "NOT CLAIMS.AMOUNTPAIDONCONTENTSCLAIM IS NULL", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "CENSUS_TRACTS.GEOID = CLAIMS.GEOID", "ST_CONTAINS(CENSUS_TRACTS.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "HOSPITALS.COUNTYFIPS = LEFT(CLAIMS.GEOID, 5)", "CLAIMS.STATEFP = HOSPITALS.STATEFP"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["NOT CLAIMS.AMOUNTPAIDONCONTENTSCLAIM IS NULL", "'22' = HOSPITALS.STATEFP", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "CENSUS_TRACTS.GEOID = CLAIMS.GEOID", "ST_CONTAINS(CENSUS_TRACTS.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'22' = CLAIMS.STATEFP", "CLAIMS.STATEFP = HOSPITALS.STATEFP", "HOSPITALS.COUNTYFIPS = LEFT(CLAIMS.GEOID, 5)"]
 
 ---
 
@@ -1252,9 +1252,9 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu kết nối: Câu lệnh thiếu điều kiện JOIN không gian hoặc khóa ngoại.
-- **Thành phần khớp**: ["hospitals", "floodplain", "county"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(COUNTY.GEOMETRY)", "ST_ISVALID(FLOODPLAIN.GEOMETRY)", "'12' = COUNTY.STATEFP", "ST_CONTAINS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))", "COUNTY.GEOID = LEFT(HOSPITALS.COUNTYFIPS, 5)"]
-- **Thành phần thừa (Predicted tự viết thêm)**: ["'48' = COUNTY.STATEFP", "ST_INTERSECTS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))", "COUNTY.GEOID = HOSPITALS.COUNTYFIPS"]
+- **Thành phần khớp**: ["county", "floodplain", "hospitals"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["'12' = COUNTY.STATEFP", "ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(COUNTY.GEOMETRY)", "ST_CONTAINS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))", "COUNTY.GEOID = LEFT(HOSPITALS.COUNTYFIPS, 5)"]
+- **Thành phần thừa (Predicted tự viết thêm)**: ["'48' = COUNTY.STATEFP", "COUNTY.GEOID = HOSPITALS.COUNTYFIPS", "ST_INTERSECTS(FLOODPLAIN.GEOMETRY, ST_POINT(HOSPITALS.LON, HOSPITALS.LAT))"]
 
 ---
 
@@ -1385,7 +1385,7 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["census_tracts", "hospitals", "floodplain"]
+- **Thành phần khớp**: ["hospitals", "floodplain", "census_tracts"]
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: []
 
@@ -1516,8 +1516,8 @@ CÂY AST PREDICTED:
 
 #### Phân tích lỗi và khác biệt:
 - **Nhận xét**: Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết.
-- **Thành phần khớp**: ["cre", "census_tracts", "floodplain"]
-- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["CRE.PRED3_PE BETWEEN 0 AND 100", "ST_ISVALID(FLOODPLAIN.GEOMETRY)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)", "'48' = LEFT(CENSUS_TRACTS.GEOID, 2)"]
+- **Thành phần khớp**: ["cre", "floodplain", "census_tracts"]
+- **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: ["ST_ISVALID(FLOODPLAIN.GEOMETRY)", "CRE.PRED3_PE BETWEEN 0 AND 100", "'48' = LEFT(CENSUS_TRACTS.GEOID, 2)", "ST_ISVALID(CENSUS_TRACTS.GEOMETRY)"]
 - **Thành phần thừa (Predicted tự viết thêm)**: ["'48' = CENSUS_TRACTS.STATEFP"]
 
 ---

@@ -119,17 +119,19 @@ We have modified the baseline implementation to improve reliability, prevent exe
 - Forced inclusion of critical join keys and spatial attributes (e.g., `GEOID`, `geometry`, `statefp`, `lon`, `lat`) into the prompt, significantly reducing logic errors like `Missing Filters` and `Missing Joins`.
 
 ### 3. Deep AST Semantic Similarity Metrics
-- Implemented two independent AST semantic similarity metrics to assess spatial query logic:
+- Implemented three independent AST semantic similarity metrics to assess spatial query logic:
   - **Weighted AST ([weighted_ast_similarity.py](file:///d:/Projects/FloodSQL-Bench-main/scripts/run_and_eval/weighted_ast_similarity.py)):** Checks structural and keyword similarity across 8 components: `Spatial Function (30%)`, `SELECT (15%)`, `WHERE (15%)`, `FROM (10%)`, `JOIN (10%)`, `Predicate (10%)`, `GROUP BY (5%)`, and `ORDER BY (5%)`.
   - **Tree Edit Distance ([tree_edit_distance.py](file:///d:/Projects/FloodSQL-Bench-main/scripts/run_and_eval/tree_edit_distance.py)):** Uses the Zhang-Shasha tree edit distance algorithm via `zss` to calculate the minimum edits (insert, delete, rename) needed to transform the predicted SQL AST into the ground truth SQL AST.
-  - Both algorithms support operator commutativity, alias resolution, and spatial predicate normalization (e.g., rewriting `ST_Within(A, B)` into `ST_Contains(B, A)`).
+  - **Subtree Matching ([subtree_matching_similarity.py](file:///d:/Projects/FloodSQL-Bench-main/scripts/run_and_eval/subtree_matching_similarity.py)):** Decomposes both ASTs into multi-sets of all subtrees, serializing them canonicalized, and calculates Jaccard similarity over the subtrees.
+  - All algorithms support operator commutativity, alias resolution, and spatial predicate normalization (e.g., rewriting `ST_Within(A, B)` into `ST_Contains(B, A)`).
 
 ### 4. Automated Evaluation Reports
-- Executing `eval.py` automatically generates a summary report at [results/eval_summary.md](file:///d:/Projects/FloodSQL-Bench-main/results/eval_summary.md) displaying execution accuracy and both semantic similarity metrics.
-- Running `generate_report.py` produces two in-depth markdown analyses:
+- Executing `eval.py` automatically generates a summary report at [results/eval_summary.md](file:///d:/Projects/FloodSQL-Bench-main/results/eval_summary.md) displaying execution accuracy and all three semantic similarity metrics.
+- Running `generate_report.py` produces three in-depth markdown analyses:
   - [results/experiment_results_weighted_ast.md](file:///d:/Projects/FloodSQL-Bench-main/results/experiment_results_weighted_ast.md) comparing queries using Weighted AST.
   - [results/experiment_results_tree_edit_distance.md](file:///d:/Projects/FloodSQL-Bench-main/results/experiment_results_tree_edit_distance.md) comparing queries using Tree Edit Distance.
-  - Both reports include detailed hierarchical AST trees for 12 representative SQL pairs.
+  - [results/experiment_results_subtree_matching.md](file:///d:/Projects/FloodSQL-Bench-main/results/experiment_results_subtree_matching.md) comparing queries using Subtree Matching.
+  - All reports include detailed hierarchical AST trees for 12 representative SQL pairs.
 
 ---
 

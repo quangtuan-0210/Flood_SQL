@@ -13,10 +13,12 @@ from sqlglot import exp, parse_one
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from weighted_ast_similarity import compare_queries, decompose_query, resolve_aliases, normalize_predicates
 from tree_edit_distance import calculate_tree_edit_distance_similarity
+from subtree_matching_similarity import calculate_subtree_matching_similarity
 
 INPUT_FILE = "results/Qwen3.6-35B-A3B-GGUF_results.jsonl"
 OUTPUT_REPORT_WEIGHTED = "results/experiment_results_weighted_ast.md"
 OUTPUT_REPORT_TED = "results/experiment_results_tree_edit_distance.md"
+OUTPUT_REPORT_SUBTREE = "results/experiment_results_subtree_matching.md"
 DATA_DIR = "data"
 
 class TimeoutConnection:
@@ -164,17 +166,22 @@ def generate_report():
         return
 
     # Duyệt qua từng phương pháp so sánh tương đồng để tạo báo cáo riêng biệt
-    for mode in ["weighted_ast", "tree_edit_distance"]:
+    for mode in ["weighted_ast", "tree_edit_distance", "subtree_matching"]:
         if mode == "weighted_ast":
             output_report = OUTPUT_REPORT_WEIGHTED
             report_title = "BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (WEIGHTED AST)"
             metric_col_header = "Điểm tương đồng Weighted AST (Weighted AST Similarity)"
             print("Đang xử lý báo cáo cho phương pháp Weighted AST...")
-        else:
+        elif mode == "tree_edit_distance":
             output_report = OUTPUT_REPORT_TED
             report_title = "BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (TREE EDIT DISTANCE)"
             metric_col_header = "Điểm tương đồng Tree Edit Distance (TED Similarity)"
             print("Đang xử lý báo cáo cho phương pháp Tree Edit Distance (TED)...")
+        else:
+            output_report = OUTPUT_REPORT_SUBTREE
+            report_title = "BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (SUBTREE MATCHING)"
+            metric_col_header = "Điểm tương đồng Subtree Matching (Subtree Matching Similarity)"
+            print("Đang xử lý báo cáo cho phương pháp Subtree Matching...")
 
         # 1. Tính toán điểm số theo từng mức L0-L5
         levels = ["L0", "L1", "L2", "L3", "L4", "L5"]
@@ -199,10 +206,14 @@ def generate_report():
                 ast_res = compare_queries(gt_sql, gen_sql)
                 metric_score = 0.0 if "error" in ast_res else ast_res["score"]
                 res_details = ast_res
-            else:
+            elif mode == "tree_edit_distance":
                 ted_res = calculate_tree_edit_distance_similarity(gt_sql, gen_sql)
                 metric_score = ted_res["score"]
                 res_details = ted_res
+            else:
+                sub_res = calculate_subtree_matching_similarity(gt_sql, gen_sql)
+                metric_score = sub_res["score"]
+                res_details = sub_res
                 
             # Điểm tương đồng văn bản
             text_score = calculate_text_similarity(gt_sql, gen_sql)
@@ -279,7 +290,7 @@ def generate_report():
         
         # Lập bảng so sánh 12 cặp
         pairs_table_lines = [
-            f"| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng {('Weighted AST' if mode == 'weighted_ast' else 'TED')} | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |",
+            f"| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng {('Weighted AST' if mode == 'weighted_ast' else ('TED' if mode == 'tree_edit_distance' else 'Subtree'))} | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |",
             "| :---: | :--- | :---: | :---: | :---: | :--- |"
         ]
         
@@ -313,7 +324,7 @@ def generate_report():
                         comment = "Thiếu bộ lọc: Thiếu các điều kiện lọc WHERE cần thiết."
                     else:
                         comment = "Sai logic: Khác biệt ở cấu trúc SELECT hoặc cách lập điều kiện."
-            else:  # tree_edit_distance
+            elif mode == "tree_edit_distance":
                 dist = details.get("distance", 0)
                 size1 = details.get("size1", 0)
                 size2 = details.get("size2", 0)
@@ -328,6 +339,21 @@ def generate_report():
                         comment = f"Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = {dist}), kết quả chạy khớp."
                 else:
                     comment = f"Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = {dist} trên tổng {size1 + size2} nút)."
+            else:  # subtree_matching
+                matches_count = details.get("matches_count", 0)
+                size1 = details.get("size1", 0)
+                size2 = details.get("size2", 0)
+                if size1 == 0 and size2 == 0:
+                    comment = "Cả hai truy vấn đều rỗng hoặc lỗi cú pháp nặng."
+                elif size2 == 0:
+                    comment = "Lỗi cú pháp: Predicted SQL rỗng hoặc không thể parse thành cây AST."
+                elif r["exec_ok"]:
+                    if m_score == 1.0:
+                        comment = "Khớp hoàn toàn: Cấu trúc các cây con trùng khớp 100%."
+                    else:
+                        comment = f"Tương đương kết quả: Khớp {matches_count} cây con (độ tương đồng {m_score*100:.1f}%), kết quả chạy khớp."
+                else:
+                    comment = f"Sai logic: Khác biệt cấu trúc (Khớp {matches_count} trên tổng số {size1 + size2 - matches_count} cây con)."
 
             pairs_table_lines.append(
                 f"| {pair_num} | {qid} | {lvl} | {m_score:.2f} | {exec_ok} | {comment} |"
@@ -343,7 +369,7 @@ def generate_report():
 - **Thành phần khớp**: {json.dumps(expl.get("tables", {}).get("matches", []) if "error" not in details else [], ensure_ascii=False)}
 - **Thành phần thiếu (Ground Truth có nhưng Predicted thiếu)**: {json.dumps(expl.get("filter_conditions", {}).get("missing", []) + expl.get("join_conditions", {}).get("missing", []) if "error" not in details else [], ensure_ascii=False)}
 - **Thành phần thừa (Predicted tự viết thêm)**: {json.dumps(expl.get("filter_conditions", {}).get("extra", []) + expl.get("join_conditions", {}).get("extra", []) if "error" not in details else [], ensure_ascii=False)}"""
-            else:
+            elif mode == "tree_edit_distance":
                 dist = details.get("distance", 0)
                 size1 = details.get("size1", 0)
                 size2 = details.get("size2", 0)
@@ -352,11 +378,21 @@ def generate_report():
 - **Kích thước cây Ground Truth (Ground Truth AST Size)**: {size1} nút
 - **Kích thước cây Predicted (Predicted AST Size)**: {size2} nút
 - **Tổng số nút tối đa (Max Possible Distance)**: {size1 + size2}"""
+            else:  # subtree_matching
+                size1 = details.get("size1", 0)
+                size2 = details.get("size2", 0)
+                matches_count = details.get("matches_count", 0)
+                matching_list = [f"`{item['subtree']}` (Số lượng: {item['count']})" for item in details.get("matching_subtrees", [])[:5]]
+                detail_analysis = f"""- **Nhận xét**: {comment}
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: {size1}
+- **Tổng số cây con Predicted (Predicted Subtrees)**: {size2}
+- **Số cây con trùng khớp (Matching Subtrees Count)**: {matches_count}
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: {', '.join(matching_list) if matching_list else '(Không có)'}"""
 
             pair_details_sections.append(f"""
 ### Cặp {pair_num}: {qid} (Mức {lvl})
 * **Câu hỏi**: {r["question"]}
-* **Điểm tương đồng {('Weighted AST' if mode == 'weighted_ast' else 'TED')}**: {m_score:.2f}
+* **Điểm tương đồng {('Weighted AST' if mode == 'weighted_ast' else ('TED' if mode == 'tree_edit_distance' else 'Subtree'))}**: {m_score:.2f}
 * **Độ chính xác thực thi**: {exec_ok}
 
 #### Truy vấn so sánh:
@@ -391,7 +427,7 @@ CÂY AST PREDICTED:
         
         if mode == "weighted_ast":
             desc_text = r"""- **Điểm tương đồng Weighted AST (Weighted AST Similarity)** đo lường độ chính xác cấu trúc ngữ nghĩa (phân tích sâu các thành phần SELECT, WHERE, JOIN, FROM, Predicate phi không gian, GROUP BY, ORDER BY theo hệ số trọng số), phản ánh sát tư duy viết code của AI."""
-        else:
+        elif mode == "tree_edit_distance":
             desc_text = r"""- **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth.
   
   **Thuật toán Tree Edit Distance (TED):**
@@ -407,6 +443,19 @@ CÂY AST PREDICTED:
   - $d(T_1, T_2)$ là khoảng cách hiệu chỉnh cây thực tế giữa Ground Truth AST ($T_1$) và Predicted AST ($T_2$).
   - $|T_1| + |T_2|$ là khoảng cách hiệu chỉnh tối đa có thể (trường hợp xóa sạch cây $T_1$ và dựng mới toàn bộ cây $T_2$).
   - Nếu cả hai cây đều rỗng ($|T_1| + |T_2| = 0$), $S = 1.0$."""
+        else:
+            desc_text = r"""- **Điểm tương đồng Subtree Matching (Subtree Matching Similarity)** đo lường tỷ lệ các cây con trùng khớp chính xác (bao gồm cả cấu trúc và giá trị nhãn) giữa hai cây cú pháp AST đã chuẩn hóa.
+  
+  **Thuật toán Khớp cây con (Subtree Matching):**
+  Thuật toán phân rã cây AST của truy vấn Ground Truth ($T_1$) và Predicted ($T_2$) thành các tập đa hợp (multi-sets) chứa tất cả các cây con có thể. Mỗi nút trong AST đóng vai trò là gốc của một cây con. Các cây con này sau đó được mã hóa (tuần tự hóa) thành dạng canonical string duy nhất để so sánh trực tiếp.
+  
+  **Công thức chuẩn hóa điểm tương đồng:**
+  Sử dụng hệ số tương đồng Jaccard trên hai tập đa hợp các cây con $S_1$ và $S_2$:
+  $$S = \frac{|S_1 \cap S_2|}{|S_1 \cup S_2|} = \frac{|S_1 \cap S_2|}{|S_1| + |S_2| - |S_1 \cap S_2|}$$
+  *Trong đó:*
+  - $|S_1 \cap S_2|$ là số lượng cây con trùng khớp hoàn hảo (giao của hai tập đa hợp).
+  - $|S_1| + |S_2| - |S_1 \cap S_2|$ là kích thước hợp của hai tập đa hợp cây con.
+  - Nếu cả hai cây đều rỗng ($|S_1| + |S_2| = 0$), $S = 1.0$."""
 
         report_content = f"""# {report_title}
 

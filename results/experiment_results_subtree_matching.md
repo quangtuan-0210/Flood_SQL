@@ -1,4 +1,4 @@
-# BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (TREE EDIT DISTANCE)
+# BÁO CÁO THỰC NGHIỆM ĐÁNH GIÁ TRUY VẤN TEXT-TO-SPATIAL SQL (SUBTREE MATCHING)
 
 Báo cáo này được tự động tạo lập từ kết quả chạy đánh giá mô hình `vllm/Qwen3.6-35B-A3B-GGUF` kết hợp với API embedding `mirai-embedding` trên tập dữ liệu FloodSQL-Bench.
 
@@ -6,60 +6,57 @@ Báo cáo này được tự động tạo lập từ kết quả chạy đánh 
 
 Dưới đây là bảng thống kê điểm số trung bình của mô hình theo từng mức từ L0 (Dễ nhất) đến L5 (Khó nhất):
 
-| Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng Tree Edit Distance (TED Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
+| Mức độ | Số lượng câu | Độ chính xác thực thi (Execution Acc) | Điểm tương đồng Subtree Matching (Subtree Matching Similarity) | Điểm tương đồng văn bản SQL (Text Similarity) |
 | :--- | :---: | :---: | :---: | :---: |
-| L0 | 50 | 78.00% | 80.65% | 53.68% |
-| L1 | 100 | 59.00% | 70.79% | 39.69% |
-| L2 | 150 | 40.67% | 82.28% | 32.63% |
-| L3 | 50 | 14.00% | 55.84% | 27.68% |
-| L4 | 43 | 4.65% | 44.32% | 19.01% |
-| L5 | 50 | 0.00% | 22.29% | 8.72% |
-| **Trung bình cộng** | **443** | **37.92%** | **66.06%** | **32.02%** |
+| L0 | 50 | 78.00% | 51.62% | 53.68% |
+| L1 | 100 | 59.00% | 44.11% | 39.69% |
+| L2 | 150 | 40.67% | 54.19% | 32.63% |
+| L3 | 50 | 12.00% | 34.75% | 27.68% |
+| L4 | 43 | 2.33% | 28.34% | 19.01% |
+| L5 | 50 | 0.00% | 14.83% | 8.72% |
+| **Trung bình cộng** | **443** | **37.47%** | **42.48%** | **32.02%** |
 
 * **Nhận xét chung**:
   - **Độ chính xác thực thi (Execution Accuracy)** phản ánh tỷ lệ câu chạy ra kết quả khớp 100% trên DuckDB.
-  - **Điểm tương đồng Tree Edit Distance (TED Similarity)** đo lường số bước sửa đổi tối thiểu trên cây cú pháp AST đã chuẩn hóa để biến đổi truy vấn Predicted thành Ground Truth.
+  - **Điểm tương đồng Subtree Matching (Subtree Matching Similarity)** đo lường tỷ lệ các cây con trùng khớp chính xác (bao gồm cả cấu trúc và giá trị nhãn) giữa hai cây cú pháp AST đã chuẩn hóa.
   
-  **Thuật toán Tree Edit Distance (TED):**
-  Phương pháp sử dụng thuật toán Zhang-Shasha (1989) để so sánh hai cây cú pháp có thứ tự. Khoảng cách hiệu chỉnh $d(T_1, T_2)$ là số thao tác tối thiểu gồm:
-  1. *Delete (Xóa nút)*: Loại bỏ một nút khỏi cây và chuyển các con của nó lên làm con trực tiếp của cha nó.
-  2. *Insert (Thêm nút)*: Chèn thêm một nút vào một vị trí và chuyển một nhóm con của cha nó làm con của nút mới.
-  3. *Rename (Thay đổi nhãn)*: Đổi nhãn của một nút (ví dụ: đổi tên hàm hoặc cột).
+  **Thuật toán Khớp cây con (Subtree Matching):**
+  Thuật toán phân rã cây AST của truy vấn Ground Truth ($T_1$) và Predicted ($T_2$) thành các tập đa hợp (multi-sets) chứa tất cả các cây con có thể. Mỗi nút trong AST đóng vai trò là gốc của một cây con. Các cây con này sau đó được mã hóa (tuần tự hóa) thành dạng canonical string duy nhất để so sánh trực tiếp.
   
   **Công thức chuẩn hóa điểm tương đồng:**
-  Điểm tương đồng chuẩn hóa $S \in [0, 1]$ được tính theo công thức:
-  $$S = 1.0 - \frac{d(T_1, T_2)}{|T_1| + |T_2|}$$
+  Sử dụng hệ số tương đồng Jaccard trên hai tập đa hợp các cây con $S_1$ và $S_2$:
+  $$S = \frac{|S_1 \cap S_2|}{|S_1 \cup S_2|} = \frac{|S_1 \cap S_2|}{|S_1| + |S_2| - |S_1 \cap S_2|}$$
   *Trong đó:*
-  - $d(T_1, T_2)$ là khoảng cách hiệu chỉnh cây thực tế giữa Ground Truth AST ($T_1$) và Predicted AST ($T_2$).
-  - $|T_1| + |T_2|$ là khoảng cách hiệu chỉnh tối đa có thể (trường hợp xóa sạch cây $T_1$ và dựng mới toàn bộ cây $T_2$).
-  - Nếu cả hai cây đều rỗng ($|T_1| + |T_2| = 0$), $S = 1.0$.
+  - $|S_1 \cap S_2|$ là số lượng cây con trùng khớp hoàn hảo (giao của hai tập đa hợp).
+  - $|S_1| + |S_2| - |S_1 \cap S_2|$ là kích thước hợp của hai tập đa hợp cây con.
+  - Nếu cả hai cây đều rỗng ($|S_1| + |S_2| = 0$), $S = 1.0$.
   - **Điểm tương đồng văn bản (Text Similarity)** dựa trên từ vựng thuần túy, thường có xu hướng thấp hơn điểm AST do sự khác biệt nhỏ về cách viết thường/hoa, khoảng trắng hoặc alias không làm ảnh hưởng ngữ nghĩa nhưng làm lệch chữ.
 
 ## 2. Bảng So sánh 12 Cặp Spatial SQL Tiêu Biểu (L0 - L5)
 
 Dưới đây là bảng thống kê 12 cặp truy vấn đại diện được trích xuất từ thực nghiệm để đánh giá chi tiết:
 
-| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng TED | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |
+| Cặp số | Mã câu hỏi | Mức độ | Điểm tương đồng Subtree | Kết quả Thực thi | Nhận xét chi tiết nguyên nhân khác biệt |
 | :---: | :--- | :---: | :---: | :---: | :--- |
-| 1 | L0_0001 | L0 | 0.54 | Đúng | Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 24.0), kết quả chạy khớp. |
-| 2 | L0_0002 | L0 | 0.86 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 6.0 trên tổng 42 nút). |
-| 3 | L1_0001 | L1 | 0.86 | Đúng | Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 13.0), kết quả chạy khớp. |
-| 4 | L1_0004 | L1 | 0.92 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 8.0 trên tổng 97 nút). |
-| 5 | L2_0003 | L2 | 0.88 | Đúng | Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 13.0), kết quả chạy khớp. |
-| 6 | L2_0001 | L2 | 0.81 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 12.0 trên tổng 62 nút). |
-| 7 | L3_0013 | L3 | 0.75 | Đúng | Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 26.0), kết quả chạy khớp. |
-| 8 | L3_0002 | L3 | 0.53 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 72.0 trên tổng 153 nút). |
-| 9 | L4_0015 | L4 | 0.55 | Đúng | Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 40.0), kết quả chạy khớp. |
-| 10 | L4_0005 | L4 | 0.82 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 20.0 trên tổng 110 nút). |
-| 11 | L5_0001 | L5 | 0.87 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 13.0 trên tổng 102 nút). |
-| 12 | L4_0007 | L4 | 0.70 | Sai | Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 30.0 trên tổng 100 nút). |
+| 1 | L0_0001 | L0 | 0.13 | Đúng | Tương đương kết quả: Khớp 6 cây con (độ tương đồng 13.0%), kết quả chạy khớp. |
+| 2 | L0_0002 | L0 | 0.62 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 16 trên tổng số 26 cây con). |
+| 3 | L1_0001 | L1 | 0.45 | Đúng | Tương đương kết quả: Khớp 29 cây con (độ tương đồng 45.3%), kết quả chạy khớp. |
+| 4 | L1_0004 | L1 | 0.76 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 42 trên tổng số 55 cây con). |
+| 5 | L2_0003 | L2 | 0.68 | Đúng | Tương đương kết quả: Khớp 42 cây con (độ tương đồng 67.7%), kết quả chạy khớp. |
+| 6 | L2_0001 | L2 | 0.59 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 23 trên tổng số 39 cây con). |
+| 7 | L3_0013 | L3 | 0.36 | Đúng | Tương đương kết quả: Khớp 28 cây con (độ tương đồng 36.4%), kết quả chạy khớp. |
+| 8 | L3_0002 | L3 | 0.32 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 37 trên tổng số 116 cây con). |
+| 9 | L4_0032 | L4 | 0.46 | Đúng | Tương đương kết quả: Khớp 30 cây con (độ tương đồng 46.2%), kết quả chạy khớp. |
+| 10 | L4_0005 | L4 | 0.47 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 35 trên tổng số 75 cây con). |
+| 11 | L5_0001 | L5 | 0.62 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 39 trên tổng số 63 cây con). |
+| 12 | L4_0007 | L4 | 0.45 | Sai | Sai logic: Khác biệt cấu trúc (Khớp 31 trên tổng số 69 cây con). |
 
 ## 3. Phân tích Chi tiết 12 Cặp Truy vấn (AST & Trực quan hóa)
 
 
 ### Cặp 1: L0_0001 (Mức L0)
 * **Câu hỏi**: In Harris County, Texas (identified by GEOID starting with 48201), how many NFIP claims have a dateOfLoss on or after 2010-01-01?
-* **Điểm tương đồng TED**: 0.54
+* **Điểm tương đồng Subtree**: 0.13
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -132,18 +129,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 24.0), kết quả chạy khớp.
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 24.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 20 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 32 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 52
+- **Nhận xét**: Tương đương kết quả: Khớp 6 cây con (độ tương đồng 13.0%), kết quả chạy khớp.
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 20
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 32
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 6
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `From(Table:claims(Identifier:claims))` (Số lượng: 1), `Table:claims(Identifier:claims)` (Số lượng: 1), `Identifier:dateOfLoss` (Số lượng: 1), `Literal:2010-01-01` (Số lượng: 1), `Identifier:claims` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 2: L0_0002 (Mức L0)
 * **Câu hỏi**: What is the total area of valid FEMA Flood Hazard Zone polygons in Florida (STATEFP = '12') labeled as AE?
-* **Điểm tương đồng TED**: 0.86
+* **Điểm tương đồng Subtree**: 0.62
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -206,18 +203,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 6.0 trên tổng 42 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 6.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 24 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 18 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 42
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 16 trên tổng số 26 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 24
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 18
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 16
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `And(EQ(Literal:12,Column(Identifier:STATEFP)),EQ(Literal:AE,Column(Identifier:FLD_ZONE)))` (Số lượng: 1), `Sum(Func:ST_AREA(Column(Identifier:geometry)))` (Số lượng: 1), `From(Table:floodplain(Identifier:floodplain))` (Số lượng: 1), `EQ(Literal:AE,Column(Identifier:FLD_ZONE))` (Số lượng: 1), `Func:ST_AREA(Column(Identifier:geometry))` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 3: L1_0001 (Mức L1)
 * **Câu hỏi**: Which non-null year had the highest total number of NFIP flood claims in Louisiana (STATEFP 22), based on a key-based join between claims and county tables? Return the year.
-* **Điểm tương đồng TED**: 0.86
+* **Điểm tương đồng Subtree**: 0.45
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -331,18 +328,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 13.0), kết quả chạy khớp.
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 13.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 45 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 48 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 93
+- **Nhận xét**: Tương đương kết quả: Khớp 29 cây con (độ tương đồng 45.3%), kết quả chạy khớp.
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 45
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 48
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 29
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:county(Identifier:county),EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:claims),Literal:5)))` (Số lượng: 1), `EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:claims),Literal:5))` (Số lượng: 1), `Not(Is(Column(Identifier:dateOfLoss,Identifier:claims),Null))` (Số lượng: 1), `Left(Column(Identifier:GEOID,Identifier:claims),Literal:5)` (Số lượng: 1), `Is(Column(Identifier:dateOfLoss,Identifier:claims),Null)` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 4: L1_0004 (Mức L1)
 * **Câu hỏi**: Which 3 Texas counties (STATEFP 48) have the highest non-null percentage of individuals with zero vulnerability components?
-* **Điểm tương đồng TED**: 0.92
+* **Điểm tương đồng Subtree**: 0.76
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -460,18 +457,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 8.0 trên tổng 97 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 8.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 46 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 51 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 97
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 42 trên tổng số 55 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 46
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 51
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 42
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:county(Identifier:county),EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:cre),Literal:5)))` (Số lượng: 1), `Where(And(EQ(Literal:48,Column(Identifier:STATEFP,Identifier:county)),Not(Is(Column(Identifier:PRED0_PE,Identifier:cre),Null))))` (Số lượng: 1), `And(EQ(Literal:48,Column(Identifier:STATEFP,Identifier:county)),Not(Is(Column(Identifier:PRED0_PE,Identifier:cre),Null)))` (Số lượng: 1), `EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:cre),Literal:5))` (Số lượng: 1), `Order(Ordered(Avg(Column(Identifier:PRED0_PE,Identifier:cre))))` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 5: L2_0003 (Mức L2)
 * **Câu hỏi**: Which census_tract in Hillsborough County, FL (identified by STATEFP = '12' and COUNTYFP = '057') has the largest total overlap area with all zcta polygons? Return its 11-digit GEOID.
-* **Điểm tương đồng TED**: 0.88
+* **Điểm tương đồng Subtree**: 0.68
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -596,18 +593,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 13.0), kết quả chạy khớp.
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 13.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 58 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 46 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 104
+- **Nhận xét**: Tương đương kết quả: Khớp 42 cây con (độ tương đồng 67.7%), kết quả chạy khớp.
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 58
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 46
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 42
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Order(Ordered(Sum(Func:ST_AREA(Func:ST_INTERSECTION(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:zcta))))))` (Số lượng: 1), `Ordered(Sum(Func:ST_AREA(Func:ST_INTERSECTION(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:zcta)))))` (Số lượng: 1), `And(EQ(Literal:12,Column(Identifier:STATEFP,Identifier:census_tracts)),EQ(Literal:057,Column(Identifier:COUNTYFP,Identifier:census_tracts)))` (Số lượng: 1), `Sum(Func:ST_AREA(Func:ST_INTERSECTION(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:zcta))))` (Số lượng: 1), `Func:ST_AREA(Func:ST_INTERSECTION(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:zcta)))` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 6: L2_0001 (Mức L2)
 * **Câu hỏi**: How many census_tracts in Duval County, FL (identified by GEOID starting with 12031) intersect floodplain polygons?
-* **Điểm tương đồng TED**: 0.81
+* **Điểm tương đồng Subtree**: 0.59
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -690,18 +687,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 12.0 trên tổng 62 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 12.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 37 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 25 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 62
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 23 trên tổng số 39 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 37
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 25
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 23
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:floodplain(Identifier:floodplain),Func:ST_INTERSECTS(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:floodplain)))` (Số lượng: 1), `Func:ST_INTERSECTS(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:floodplain))` (Số lượng: 1), `Like(Column(Identifier:GEOID,Identifier:census_tracts),Literal:12031%)` (Số lượng: 1), `Count(Distinct(Column(Identifier:GEOID,Identifier:census_tracts)))` (Số lượng: 1), `Distinct(Column(Identifier:GEOID,Identifier:census_tracts))` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 7: L3_0013 (Mức L3)
 * **Câu hỏi**: How many Louisiana (STATEFP 22) census tracts with NFIP claims have both overall SVI relative vulnerability percentile across all themes above 0.8 and CRE population exceeding 10,000?
-* **Điểm tương đồng TED**: 0.75
+* **Điểm tương đồng Subtree**: 0.36
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
@@ -827,18 +824,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 26.0), kết quả chạy khớp.
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 26.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 58 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 47 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 105
+- **Nhận xét**: Tương đương kết quả: Khớp 28 cây con (độ tương đồng 36.4%), kết quả chạy khớp.
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 58
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 47
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 28
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `GT(Column(Identifier:RPL_THEMES,Identifier:svi),Literal:0.8)` (Số lượng: 1), `GT(Column(Identifier:POPUNI,Identifier:cre),Literal:10000)` (Số lượng: 1), `Column(Identifier:RPL_THEMES,Identifier:svi)` (Số lượng: 1), `Column(Identifier:POPUNI,Identifier:cre)` (Số lượng: 1), `Column(Identifier:GEOID,Identifier:svi)` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 8: L3_0002 (Mức L3)
 * **Câu hỏi**: In Florida (STATEFP 12), list the 5 census tracts with the highest population-weighted combined score of NRI total expected annual loss for riverine flooding and its average annual flood event frequency among tracts with NFIP claims.
-* **Điểm tương đồng TED**: 0.53
+* **Điểm tương đồng Subtree**: 0.32
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -1012,28 +1009,28 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 72.0 trên tổng 153 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 72.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 88 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 65 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 153
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 37 trên tổng số 116 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 88
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 65
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 37
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Mul(Paren(Add(Column(Identifier:RFLD_EALT,Identifier:nri),Column(Identifier:RFLD_AFREQ,Identifier:nri))),Column(Identifier:POPUNI,Identifier:cre))` (Số lượng: 1), `Paren(Add(Column(Identifier:RFLD_EALT,Identifier:nri),Column(Identifier:RFLD_AFREQ,Identifier:nri)))` (Số lượng: 1), `Add(Column(Identifier:RFLD_EALT,Identifier:nri),Column(Identifier:RFLD_AFREQ,Identifier:nri))` (Số lượng: 1), `Column(Identifier:RFLD_AFREQ,Identifier:nri)` (Số lượng: 1), `Column(Identifier:RFLD_EALT,Identifier:nri)` (Số lượng: 1)
 
 ---
 
 
-### Cặp 9: L4_0015 (Mức L4)
-* **Câu hỏi**: In Louisiana (STATEFP 22), what is the maximum Insurance payout amount (in USD) for structural building damage (amountPaidOnContentsClaim) across all census tracts that contain at least one hospital?
-* **Điểm tương đồng TED**: 0.55
+### Cặp 9: L4_0032 (Mức L4)
+* **Câu hỏi**: In Dallas County, Texas (GEOID 48113), what is the total Expected annual loss for buildings caused by riverine flooding (USD) across all census tracts within that county, contingent on the county boundary also containing at least one hospital?
+* **Điểm tương đồng Subtree**: 0.46
 * **Độ chính xác thực thi**: Đúng
 
 #### Truy vấn so sánh:
 * **Ground Truth SQL**:
   ```sql
-  SELECT MAX(CAST(cl.amountPaidOnContentsClaim AS DOUBLE)) AS max_building_claim FROM hospitals h JOIN census_tracts t ON ST_Contains(t.geometry, ST_Point(h.LON, h.LAT)) JOIN claims cl ON cl.GEOID = t.GEOID WHERE h.STATEFP='22' AND ST_IsValid(t.geometry) AND cl.amountPaidOnContentsClaim IS NOT NULL;
+  SELECT SUM(n.RFLD_EALB) AS total_expected_loss FROM nri n JOIN county c ON LEFT(n.GEOID, 5) = c.GEOID WHERE c.GEOID = '48113' AND n.RFLD_EALB IS NOT NULL AND EXISTS (SELECT 1 FROM hospitals h WHERE ST_Contains(c.geometry, ST_Point(h.LON, h.LAT)));
   ```
 * **Predicted SQL**:
   ```sql
-  SELECT MAX(claims.amountPaidOnContentsClaim) FROM claims JOIN hospitals ON LEFT(claims.GEOID, 5) = hospitals.COUNTYFIPS AND claims.STATEFP = hospitals.STATEFP WHERE claims.STATEFP = '22'
+  SELECT SUM(nri.RFLD_EALB) FROM nri JOIN county ON LEFT(nri.GEOID, 5) = county.GEOID WHERE county.GEOID = '48113' AND EXISTS ( SELECT 1 FROM hospitals WHERE hospitals.COUNTYFIPS = county.GEOID )
   ```
 
 #### Trực quan hóa Cây AST chuẩn hóa:
@@ -1041,12 +1038,10 @@ CÂY AST PREDICTED:
 CÂY AST GROUND TRUTH:
 └─ Select
   └─ Alias
-    └─ Max
-      └─ Cast
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ DataType
+    └─ Sum
+      └─ Column
+        └─ Identifier
+        └─ Identifier
     └─ Identifier
   └─ From
     └─ Table
@@ -1054,27 +1049,15 @@ CÂY AST GROUND TRUTH:
   └─ Join
     └─ Table
       └─ Identifier
-    └─ Anonymous
-      └─ Column
-        └─ Identifier
-        └─ Identifier
-      └─ StPoint
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-  └─ Join
-    └─ Table
-      └─ Identifier
     └─ EQ
       └─ Column
         └─ Identifier
         └─ Identifier
-      └─ Column
-        └─ Identifier
-        └─ Identifier
+      └─ Left
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+        └─ Literal
   └─ Where
     └─ And
       └─ And
@@ -1083,20 +1066,34 @@ CÂY AST GROUND TRUTH:
           └─ Column
             └─ Identifier
             └─ Identifier
-        └─ Anonymous
-          └─ Column
-            └─ Identifier
-            └─ Identifier
-      └─ Not
-        └─ Is
-          └─ Column
-            └─ Identifier
-            └─ Identifier
-          └─ Null
+        └─ Not
+          └─ Is
+            └─ Column
+              └─ Identifier
+              └─ Identifier
+            └─ Null
+      └─ Exists
+        └─ Select
+          └─ Literal
+          └─ From
+            └─ Table
+              └─ Identifier
+          └─ Where
+            └─ Anonymous
+              └─ Column
+                └─ Identifier
+                └─ Identifier
+              └─ StPoint
+                └─ Column
+                  └─ Identifier
+                  └─ Identifier
+                └─ Column
+                  └─ Identifier
+                  └─ Identifier
 
 CÂY AST PREDICTED:
 └─ Select
-  └─ Max
+  └─ Sum
     └─ Column
       └─ Identifier
       └─ Identifier
@@ -1106,44 +1103,51 @@ CÂY AST PREDICTED:
   └─ Join
     └─ Table
       └─ Identifier
-    └─ And
-      └─ EQ
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Left
-          └─ Column
-            └─ Identifier
-            └─ Identifier
-          └─ Literal
-      └─ EQ
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-        └─ Column
-          └─ Identifier
-          └─ Identifier
-  └─ Where
     └─ EQ
-      └─ Literal
       └─ Column
         └─ Identifier
         └─ Identifier
+      └─ Left
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+        └─ Literal
+  └─ Where
+    └─ And
+      └─ EQ
+        └─ Literal
+        └─ Column
+          └─ Identifier
+          └─ Identifier
+      └─ Exists
+        └─ Select
+          └─ Literal
+          └─ From
+            └─ Table
+              └─ Identifier
+          └─ Where
+            └─ EQ
+              └─ Column
+                └─ Identifier
+                └─ Identifier
+              └─ Column
+                └─ Identifier
+                └─ Identifier
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Tương đương kết quả: Khác biệt cấu trúc nhẹ (Khoảng cách = 40.0), kết quả chạy khớp.
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 40.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 54 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 34 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 88
+- **Nhận xét**: Tương đương kết quả: Khớp 30 cây con (độ tương đồng 46.2%), kết quả chạy khớp.
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 54
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 41
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 30
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:county(Identifier:county),EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:nri),Literal:5)))` (Số lượng: 1), `EQ(Column(Identifier:GEOID,Identifier:county),Left(Column(Identifier:GEOID,Identifier:nri),Literal:5))` (Số lượng: 1), `EQ(Literal:48113,Column(Identifier:GEOID,Identifier:county))` (Số lượng: 1), `Left(Column(Identifier:GEOID,Identifier:nri),Literal:5)` (Số lượng: 1), `Sum(Column(Identifier:RFLD_EALB,Identifier:nri))` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 10: L4_0005 (Mức L4)
 * **Câu hỏi**: Which 5 Texas (STATEFP 12) counties have the highest number of hospitals located inside floodplain zones? Return their names.
-* **Điểm tương đồng TED**: 0.82
+* **Điểm tương đồng Subtree**: 0.47
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -1274,18 +1278,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 20.0 trên tổng 110 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 20.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 61 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 49 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 110
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 35 trên tổng số 75 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 61
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 49
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 35
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals))` (Số lượng: 1), `Column(Identifier:COUNTYFIPS,Identifier:hospitals)` (Số lượng: 1), `Column(Identifier:geometry,Identifier:floodplain)` (Số lượng: 1), `Group(Column(Identifier:NAME,Identifier:county))` (Số lượng: 1), `Column(Identifier:STATEFP,Identifier:county)` (Số lượng: 1)
 
 ---
 
 
 ### Cặp 11: L5_0001 (Mức L5)
 * **Câu hỏi**: How many hospitals are located within both FEMA floodplain polygons and census tract boundaries in Harris County, Texas (identified by the leftmost 5 digits of GEOID 48201 in the census_tract table)?
-* **Điểm tương đồng TED**: 0.87
+* **Điểm tương đồng Subtree**: 0.62
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -1408,18 +1412,18 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 13.0 trên tổng 102 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 13.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 57 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 45 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 102
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 39 trên tổng số 63 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 57
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 45
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 39
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:census_tracts(Identifier:census_tracts),Func:ST_CONTAINS(Column(Identifier:geometry,Identifier:census_tracts),StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals))))` (Số lượng: 1), `Join(Table:floodplain(Identifier:floodplain),Func:ST_CONTAINS(Column(Identifier:geometry,Identifier:floodplain),StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals))))` (Số lượng: 1), `Func:ST_CONTAINS(Column(Identifier:geometry,Identifier:census_tracts),StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals)))` (Số lượng: 1), `Func:ST_CONTAINS(Column(Identifier:geometry,Identifier:floodplain),StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals)))` (Số lượng: 1), `StPoint(Column(Identifier:LON,Identifier:hospitals),Column(Identifier:LAT,Identifier:hospitals))` (Số lượng: 2)
 
 ---
 
 
 ### Cặp 12: L4_0007 (Mức L4)
 * **Câu hỏi**: In Texas (STATEFP 48), how many census tracts with Percentage of individuals with three plus components of social vulnerability higher than 40 intersect FEMA floodplain polygons?
-* **Điểm tương đồng TED**: 0.70
+* **Điểm tương đồng Subtree**: 0.45
 * **Độ chính xác thực thi**: Sai
 
 #### Truy vấn so sánh:
@@ -1540,11 +1544,11 @@ CÂY AST PREDICTED:
 ```
 
 #### Phân tích lỗi và khác biệt:
-- **Nhận xét**: Khác biệt logic: Cấu trúc AST khác biệt đáng kể (Edit distance = 30.0 trên tổng 100 nút).
-- **Khoảng cách hiệu chỉnh cây (Tree Edit Distance)**: 30.0
-- **Kích thước cây Ground Truth (Ground Truth AST Size)**: 59 nút
-- **Kích thước cây Predicted (Predicted AST Size)**: 41 nút
-- **Tổng số nút tối đa (Max Possible Distance)**: 100
+- **Nhận xét**: Sai logic: Khác biệt cấu trúc (Khớp 31 trên tổng số 69 cây con).
+- **Tổng số cây con Ground Truth (Ground Truth Subtrees)**: 59
+- **Tổng số cây con Predicted (Predicted Subtrees)**: 41
+- **Số cây con trùng khớp (Matching Subtrees Count)**: 31
+- **Top 5 cây con lớn nhất trùng khớp (Largest Matching Subtrees)**: `Join(Table:floodplain(Identifier:floodplain),Func:ST_INTERSECTS(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:floodplain)))` (Số lượng: 1), `Func:ST_INTERSECTS(Column(Identifier:geometry,Identifier:census_tracts),Column(Identifier:geometry,Identifier:floodplain))` (Số lượng: 1), `EQ(Column(Identifier:GEOID,Identifier:census_tracts),Column(Identifier:GEOID,Identifier:cre))` (Số lượng: 1), `GT(Column(Identifier:PRED3_PE,Identifier:cre),Literal:40)` (Số lượng: 1), `Column(Identifier:geometry,Identifier:census_tracts)` (Số lượng: 1)
 
 ---
 
