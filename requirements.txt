@@ -37,3 +37,4 @@ jiter
 httpx-sse
 ollama==0.6.1
 hf-xet
+zss==1.2.0
